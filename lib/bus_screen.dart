@@ -1,4 +1,9 @@
+import 'dart:developer';
+
+import 'package:bus_track/presentation/widget/location_permission_dialog.dart';
+import 'package:bus_track/service/location_service.dart';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models/stop.dart';
 import 'models/line.dart';
@@ -16,10 +21,50 @@ class _BusScreenState extends State<BusScreen> {
   Stop? endStop;
   List<LineStop> betweenStops = [];
 
+  double? lat;
+  double? lon;
+
   @override
   void initState() {
     super.initState();
     loadLines();
+    getCurrentLatLon(context);
+  }
+
+  void getCurrentLatLon(BuildContext context) async {
+    var status = await Permission.location.status;
+    if (status.isGranted) {
+      final position = await LocationService().getCurrentLocation(context);
+      setState(() {
+        lat = position.latitude;
+        lon = position.longitude;
+      });
+    } else {
+      showDialog(
+        // ignore: use_build_context_synchronously
+        barrierDismissible: false,
+        context: context,
+        builder: (context) {
+          return LocationPermissionDialog(
+            onAllow: () async {
+              final position = await LocationService().getCurrentLocation(context);
+              setState(() {
+                lat = position.latitude;
+                lon = position.longitude;
+              });
+              if (lat != null && lon != null) {
+                if (mounted) {
+                  Navigator.pop(context);
+                }
+              }
+            },
+            onDeny: () {},
+          );
+        },
+      );
+    }
+
+    log("Location: ($lat, $lon)");
   }
 
   // Fetch all lines
